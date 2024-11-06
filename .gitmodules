@@ -1,0 +1,3 @@
+[submodule "ota-agent"]
+	path = ota-agent
+	url = git@github.com:nubificus/ota-agent.git
