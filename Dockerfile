@@ -17,6 +17,13 @@ RUN go mod tidy
 RUN go mod verify
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-extldflags=-static" -o ./esp32-sota-bin ./cmd/esp32-sota
 
-FROM cgr.dev/chainguard/static:latest
+
+# FROM docker.io/library/debian:latest
+# RUN DEBIAN_FRONTEND=noninteractive apt-get update
+# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y libssl-dev
+
+# To use the static image, we need to add the -static to LDFLAGS in the Makefile of ota-agent
+FROM harbor.nbfc.io/nubificus/static:latest
+
 COPY --from=gobuilder /sota/esp32-sota-bin /esp32-sota
 COPY --from=cbuilder /ota-agent/ota-agent /ota-agent
