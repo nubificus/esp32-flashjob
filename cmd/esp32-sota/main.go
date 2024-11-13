@@ -47,6 +47,8 @@ func main() {
 	logger.Printf("\t- Target Firmware: %s", jobConfig.firmware.Name())
 	logger.Printf("\t- Target Version: %s", jobConfig.firmware.Version())
 
+	ownIP := utils.GetEnv("AGENT_IP", logger)
+
 	err := jobConfig.firmware.DownloadWithPlatform(jobConfig.device, DefaultOS)
 	if err != nil {
 		logger.Fatal(err.Error())
@@ -67,6 +69,11 @@ func main() {
 		logger.Fatalf("Error closing file: %v\n", err)
 	}
 
+	logger.Println("Requesting OTA initialization for agent ", ownIP)
+	err = utils.DoPostRequest(fmt.Sprintf("http://%s/update", jobConfig.host), ownIP)
+	if err != nil {
+		logger.Fatalf("Error closing file: %v\n", err)
+	}
 	// TODO: we need to find a way to set the following inside the Pod
 	// SERVER_CRT_PATH: the certificate that will be used by the server for the networking operations
 	// SERVER_KEY_PATH: the correspondent private key

@@ -1,7 +1,10 @@
 package utils
 
 import (
+	"bytes"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -44,4 +47,21 @@ func RetrieveHost(logger *log.Logger) string {
 	}
 	logger.Println("HOST_ENDPOINT_XXXX variable not found, using HOST variable")
 	return GetEnv("HOST", logger)
+}
+
+func DoPostRequest(url string, ipAddress string) error {
+	body := fmt.Sprintf("ip: %s", ipAddress)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(body)))
+	if err != nil {
+		return fmt.Errorf("error creating request: %v", err)
+	}
+	req.Header.Set("Content-Type", "text/plain")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("error sending request: %w", err)
+	}
+	defer resp.Body.Close()
+	return nil
 }
