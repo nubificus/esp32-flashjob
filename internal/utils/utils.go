@@ -49,8 +49,11 @@ func RetrieveHost(logger *log.Logger) string {
 	return GetEnv("HOST", logger)
 }
 
-func DoPostRequest(url string, ipAddress string) error {
+func DoPostRequest(url string, ipAddress string, logger *log.Logger) error {
 	body := fmt.Sprintf("ip: %s", ipAddress)
+	logger.Println("body:")
+	logger.Printf("\t%s\n", body)
+	logger.Println("url:", url)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer([]byte(body)))
 	if err != nil {
 		return fmt.Errorf("error creating request: %v", err)
