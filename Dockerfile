@@ -33,3 +33,5 @@ COPY --from=gobuilder /sota/esp32-sota-bin /esp32-sota
 COPY --from=cbuilder /ota-agent/ota-agent /ota-agent
 COPY ./misc/certs /ota/certs
 COPY ./misc/boards.txt /ota/boards.txt
+
+CMD ["/esp32-sota"]

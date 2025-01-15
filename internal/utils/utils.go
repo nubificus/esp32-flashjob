@@ -41,7 +41,7 @@ func RetrieveHost(logger *log.Logger) string {
 	for _, envVar := range os.Environ() {
 		key := strings.Split(envVar, "=")[0]
 		val := strings.Split(envVar, "=")[1]
-		if strings.Contains(key, "HOST_ENDPOINT_") {
+		if strings.Contains(key, "HOST_ENDPOINT") {
 			return val
 		}
 	}
