@@ -30,6 +30,9 @@ import (
 // }
 
 func GetEnv(key string, logger *log.Logger) string {
+	if key == "APPLICATION_TYPE" {
+		return "custom"
+	}
 	envVal, isSet := os.LookupEnv(key)
 	if !isSet || envVal == "" {
 		logger.Fatalf("%s environment variable not set or empty", key)

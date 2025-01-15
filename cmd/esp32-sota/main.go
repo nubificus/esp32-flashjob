@@ -48,8 +48,10 @@ func main() {
 	logger.Printf("\t- Target Firmware: %s", jobConfig.firmware.Name())
 	logger.Printf("\t- Target Version: %s", jobConfig.firmware.Version())
 
-	agentIP := utils.GetEnv("AGENT_IP", logger)
-	deviceInfo := utils.GetEnv("DEV_INFO_PATH", logger)
+	agentIP := utils.GetEnv("EXTERNAL_IP", logger)
+	// TODO: Quick hack to integrate with operator
+	// deviceInfo := utils.GetEnv("DEV_INFO_PATH", logger)
+	deviceInfo := "/ota/boards.txt"
 	serverCRT := utils.GetEnv("SERVER_CRT_PATH", logger)
 	serverKey := utils.GetEnv("SERVER_KEY_PATH", logger)
 
