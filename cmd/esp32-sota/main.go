@@ -51,9 +51,11 @@ func main() {
 	agentIP := utils.GetEnv("EXTERNAL_IP", logger)
 	// TODO: Quick hack to integrate with operator
 	// deviceInfo := utils.GetEnv("DEV_INFO_PATH", logger)
+	// serverKey := utils.GetEnv("SERVER_KEY_PATH", logger)
+	// serverCRT := utils.GetEnv("SERVER_CRT_PATH", logger)
 	deviceInfo := "/ota/boards.txt"
-	serverCRT := utils.GetEnv("SERVER_CRT_PATH", logger)
-	serverKey := utils.GetEnv("SERVER_KEY_PATH", logger)
+	serverCRT := "/ota/certs/server.crt"
+	serverKey := "/ota/certs/server.key"
 
 	err := jobConfig.firmware.DownloadWithPlatform(jobConfig.device, DefaultOS)
 	if err != nil {
