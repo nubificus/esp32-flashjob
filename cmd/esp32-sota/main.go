@@ -36,6 +36,10 @@ func main() {
 
 	jobConfig := newOTAConfig()
 	jobConfig.device = utils.GetEnv("DEVICE", logger)
+	// quick fix for inconsistent device name
+	if jobConfig.device == "esp32-s3" {
+		jobConfig.device = "esp32s3"
+	}
 	jobConfig.host = utils.RetrieveHost(logger)
 	jobConfig.application = utils.GetEnv("APPLICATION_TYPE", logger)
 	jobConfig.version = utils.GetEnv("VERSION", logger)
