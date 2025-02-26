@@ -5,6 +5,7 @@ RUN pip install --upgrade pip
 RUN pip install jsonschema jinja2
 COPY ./ota-agent /ota-agent
 WORKDIR /ota-agent
+RUN sed -i '/^LDFLAGS/s/$/ -static/' ota-agent/Makefile
 RUN make
 
 FROM cgr.dev/chainguard/go:latest AS gobuilder
