@@ -1,11 +1,11 @@
 FROM docker.io/library/python:3.9.20-bookworm AS cbuilder
 RUN DEBIAN_FRONTEND=noninteractive apt-get update
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git make build-essential libssl-dev
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git make build-essential libssl-dev libcurl4-openssl-dev
 RUN pip install --upgrade pip
 RUN pip install jsonschema jinja2
 COPY ./ota-agent /ota-agent
 WORKDIR /ota-agent
-RUN sed -i '/^LDFLAGS/s/$/ -static/' ota-agent/Makefile
+# RUN sed -i '/^LDFLAGS/s/$/ -static/' Makefile
 RUN make
 
 FROM cgr.dev/chainguard/go:latest AS gobuilder
@@ -22,13 +22,14 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-extldflags=-static
 # RUN DEBIAN_FRONTEND=noninteractive apt-get update
 # RUN DEBIAN_FRONTEND=noninteractive apt-get install -y libssl-dev
 
-# To use the static image, we need to add the -static to LDFLAGS in the Makefile of ota-agent
-FROM cgr.dev/chainguard/static:latest
+# This approach caused problems in linking with libcurl, so we are using python3:9 to ensure compatibility
+# To use the static image, we need to add the -static to LDFLAGS in the Makefile of ota-agent 
+# FROM cgr.dev/chainguard/static:latest
 # FROM cgr.dev/chainguard/busybox:latest
 
-# FROM docker.io/library/python:3.9.20-bookworm
-# RUN DEBIAN_FRONTEND=noninteractive apt-get update
-# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git make build-essential libssl-dev
+FROM docker.io/library/python:3.9.20-bookworm
+RUN DEBIAN_FRONTEND=noninteractive apt-get update
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git make build-essential libssl-dev libcurl4-openssl-dev
 
 COPY --from=gobuilder /sota/esp32-sota-bin /esp32-sota
 COPY --from=cbuilder /ota-agent/ota-agent /ota-agent

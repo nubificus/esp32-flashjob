@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -43,6 +44,7 @@ func main() {
 	jobConfig.host = utils.RetrieveHost(logger)
 	jobConfig.application = utils.GetEnv("APPLICATION_TYPE", logger)
 	jobConfig.version = utils.GetEnv("VERSION", logger)
+	diceAuthServer := utils.GetEnv("DICE_AUTH_SERVICE_SERVICE_HOST", logger)
 	jobConfig.firmware = oci.NewOCIFirmware(utils.GetEnv("FIRMWARE", logger))
 	logger.Println("Parsed job options")
 	logger.Printf("\t- Host: %s", jobConfig.host)
@@ -51,6 +53,7 @@ func main() {
 	logger.Printf("\t- Version: %s", jobConfig.version)
 	logger.Printf("\t- Target Firmware: %s", jobConfig.firmware.Name())
 	logger.Printf("\t- Target Version: %s", jobConfig.firmware.Version())
+	logger.Printf("\t- Dice Auth Host: %s", diceAuthServer)
 
 	agentIP := utils.GetEnv("EXTERNAL_IP", logger)
 	// TODO: Quick hack to integrate with operator
@@ -90,19 +93,26 @@ func main() {
 			fmt.Sprintf("DEV_INFO_PATH=%s", deviceInfo),
 			fmt.Sprintf("SERVER_CRT_PATH=%s", serverCRT),
 			fmt.Sprintf("SERVER_KEY_PATH=%s", serverKey),
+			fmt.Sprintf("DICE_AUTH_URL=http://%s:8000", diceAuthServer),
 		)
 		logger.Println("Executing /ota-agent with env", cmd.Env)
-		output, err := cmd.CombinedOutput()
+		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			logger.Println("/ota-agent std output:")
-			logger.Println(string(output))
-			logger.Println("")
-
-			logger.Println("/ota-agent ste:")
-			logger.Fatalf("Error: %v\n", err)
+			logger.Fatalf("Error creating stdout pipe: %v\n", err)
 		}
-		logger.Println("/ota-agent std output:")
-		logger.Println(string(output))
+		stderr, err := cmd.StderrPipe()
+		if err != nil {
+			logger.Fatalf("Error creating stderr pipe: %v\n", err)
+		}
+		if err := cmd.Start(); err != nil {
+			logger.Fatalf("Error starting /ota-agent: %v\n", err)
+		}
+		go io.Copy(os.Stdout, stdout)
+		go io.Copy(os.Stderr, stderr)
+
+		if err := cmd.Wait(); err != nil {
+			logger.Fatalf("Error waiting for /ota-agent: %v\n", err)
+		}
 		logger.Println("OTA Agent exited gracefully")
 	}()
 
