@@ -71,3 +71,10 @@ func DoPostRequest(url string, ipAddress string, logger *log.Logger) error {
 	defer resp.Body.Close()
 	return nil
 }
+
+func DebugEnv(logger *log.Logger) {
+	logger.Println("Environment variables:")
+	for _, envVar := range os.Environ() {
+		logger.Println(envVar)
+	}
+}

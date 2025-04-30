@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nubificus/esp32-sota/internal/utils"
-	oci "github.com/nubificus/esp32-sota/pkg/firmware"
+	"github.com/nubificus/esp32-flashjob/internal/utils"
+	oci "github.com/nubificus/esp32-flashjob/pkg/firmware"
 )
 
 const (
 	DefaultOS    string = "custom"
-	OTAAgentPath string = "/ota-agent"
+	OTAAgentPath string = "/usr/local/bin/ota-agent"
 )
 
 var logger = log.Default()
@@ -34,7 +34,7 @@ func newOTAConfig() *OTAConfig {
 
 func main() {
 	logger.Println("esp32-ota initialized")
-
+	utils.DebugEnv(logger)
 	jobConfig := newOTAConfig()
 	jobConfig.device = utils.GetEnv("DEVICE", logger)
 	// quick fix for inconsistent device name
@@ -56,11 +56,6 @@ func main() {
 	logger.Printf("\t- Dice Auth Host: %s", diceAuthServer)
 
 	agentIP := utils.GetEnv("EXTERNAL_IP", logger)
-	// TODO: Quick hack to integrate with operator
-	// deviceInfo := utils.GetEnv("DEV_INFO_PATH", logger)
-	// serverKey := utils.GetEnv("SERVER_KEY_PATH", logger)
-	// serverCRT := utils.GetEnv("SERVER_CRT_PATH", logger)
-	deviceInfo := "/ota/boards.txt"
 	serverCRT := "/ota/certs/server.crt"
 	serverKey := "/ota/certs/server.key"
 
@@ -90,12 +85,11 @@ func main() {
 		cmd := exec.Command(OTAAgentPath)
 		cmd.Env = append(os.Environ(),
 			fmt.Sprintf("NEW_FIRMWARE_PATH=%s", jobConfig.firmware.Destination()),
-			fmt.Sprintf("DEV_INFO_PATH=%s", deviceInfo),
+			fmt.Sprintf("DICE_AUTH_URL=http://%s:8000", diceAuthServer),
 			fmt.Sprintf("SERVER_CRT_PATH=%s", serverCRT),
 			fmt.Sprintf("SERVER_KEY_PATH=%s", serverKey),
-			fmt.Sprintf("DICE_AUTH_URL=http://%s:8000", diceAuthServer),
 		)
-		logger.Println("Executing /ota-agent with env", cmd.Env)
+		logger.Println("Executing ota-agent with env")
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
 			logger.Fatalf("Error creating stdout pipe: %v\n", err)
@@ -105,13 +99,13 @@ func main() {
 			logger.Fatalf("Error creating stderr pipe: %v\n", err)
 		}
 		if err := cmd.Start(); err != nil {
-			logger.Fatalf("Error starting /ota-agent: %v\n", err)
+			logger.Fatalf("Error starting ota-agent: %v\n", err)
 		}
 		go io.Copy(os.Stdout, stdout)
 		go io.Copy(os.Stderr, stderr)
 
 		if err := cmd.Wait(); err != nil {
-			logger.Fatalf("Error waiting for /ota-agent: %v\n", err)
+			logger.Fatalf("Error waiting for ota-agent: %v\n", err)
 		}
 		logger.Println("OTA Agent exited gracefully")
 	}()

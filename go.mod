@@ -1,4 +1,4 @@
-module github.com/nubificus/esp32-sota
+module github.com/nubificus/esp32-flashjob
 
 go 1.22.4
 

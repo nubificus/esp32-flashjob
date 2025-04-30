@@ -1,39 +1,34 @@
-FROM docker.io/library/python:3.9.20-bookworm AS cbuilder
-RUN DEBIAN_FRONTEND=noninteractive apt-get update
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git make build-essential libssl-dev libcurl4-openssl-dev
-RUN pip install --upgrade pip
-RUN pip install jsonschema jinja2
+FROM harbor.nbfc.io/proxy_cache/library/python:3.13-alpine3.21 AS cbuilder
+RUN pip install --upgrade pip && \
+    pip install jsonschema jinja2 && \
+    apk update && \
+    apk add --no-cache git make build-base curl-dev perl openssl-dev
+
 COPY ./ota-agent /ota-agent
 WORKDIR /ota-agent
-# RUN sed -i '/^LDFLAGS/s/$/ -static/' Makefile
 RUN make
 
-FROM cgr.dev/chainguard/go:latest AS gobuilder
-COPY ./cmd /sota/cmd
-COPY ./pkg /sota/pkg
-COPY ./internal /sota/internal
-COPY ./go.mod /sota
-WORKDIR /sota
-RUN go mod tidy
-RUN go mod verify
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-extldflags=-static" -o ./esp32-sota-bin ./cmd/esp32-sota
+FROM harbor.nbfc.io/proxy_cache/library/golang:1.24.2-alpine3.21 AS gobuilder
+WORKDIR /app
+COPY ./cmd ./cmd
+COPY ./pkg ./pkg
+COPY ./internal ./internal
+COPY go.mod go.mod
+RUN apk update && \
+    apk add --no-cache git && \
+    go mod tidy && \
+    go mod vendor && \
+    go mod verify && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-extldflags=-static" -o ./esp32-flashjob ./cmd/esp32-flashjob
 
-# FROM docker.io/library/debian:latest
-# RUN DEBIAN_FRONTEND=noninteractive apt-get update
-# RUN DEBIAN_FRONTEND=noninteractive apt-get install -y libssl-dev
+FROM scratch AS intermediate
+WORKDIR /intermediate
+COPY --from=gobuilder /app/esp32-flashjob /intermediate/esp32-flashjob
+COPY --from=cbuilder /ota-agent/ota-agent /intermediate/ota-agent
 
-# This approach caused problems in linking with libcurl, so we are using python3:9 to ensure compatibility
-# To use the static image, we need to add the -static to LDFLAGS in the Makefile of ota-agent 
-# FROM cgr.dev/chainguard/static:latest
-# FROM cgr.dev/chainguard/busybox:latest
-
-FROM docker.io/library/python:3.9.20-bookworm
-RUN DEBIAN_FRONTEND=noninteractive apt-get update
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y git make build-essential libssl-dev libcurl4-openssl-dev
-
-COPY --from=gobuilder /sota/esp32-sota-bin /esp32-sota
-COPY --from=cbuilder /ota-agent/ota-agent /ota-agent
+FROM harbor.nbfc.io/proxy_cache/library/alpine:3.21
+RUN apk update && \
+    apk add --no-cache curl-dev openssl-dev
+COPY --from=intermediate /intermediate /usr/local/bin/
 COPY ./misc/certs /ota/certs
-COPY ./misc/boards.txt /ota/boards.txt
-
-CMD ["/esp32-sota"]
+CMD ["/usr/local/bin/esp32-flashjob"]
