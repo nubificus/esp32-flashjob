@@ -19,7 +19,7 @@ RUN apk update && \
     go mod tidy && \
     go mod vendor && \
     go mod verify && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-extldflags=-static" -o ./esp32-flashjob ./cmd/esp32-flashjob
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-extldflags=-static" -o ./esp32-flashjob ./cmd/esp32-flashjob
 
 FROM scratch AS intermediate
 WORKDIR /intermediate
