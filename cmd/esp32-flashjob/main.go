@@ -26,6 +26,7 @@ type OTAConfig struct {
 	device      string
 	application string
 	version     string
+	containerImg string
 }
 
 func newOTAConfig() *OTAConfig {
@@ -45,25 +46,35 @@ func main() {
 	jobConfig.application = utils.GetEnv("APPLICATION_TYPE", logger)
 	jobConfig.version = utils.GetEnv("VERSION", logger)
 	diceAuthServer := utils.GetEnv("DICE_AUTH_SERVICE_SERVICE_HOST", logger)
-	jobConfig.firmware = oci.NewOCIFirmware(utils.GetEnv("FIRMWARE", logger))
+	if jobConfig.device == "linux" {
+		jobConfig.firmware = oci.NewOCIFirmware(utils.GetEnv("FIRMWARE", logger))
+	} else {
+		jobConfig.containerImg = utils.GetEnv("FIRMWARE", logger)
+	}
 	logger.Println("Parsed job options")
 	logger.Printf("\t- Host: %s", jobConfig.host)
 	logger.Printf("\t- Device: %s", jobConfig.device)
 	logger.Printf("\t- Application: %s", jobConfig.application)
 	logger.Printf("\t- Version: %s", jobConfig.version)
-	logger.Printf("\t- Target Firmware: %s", jobConfig.firmware.Name())
-	logger.Printf("\t- Target Version: %s", jobConfig.firmware.Version())
+	if jobConfig.device != "linux" {
+		logger.Printf("\t- Target Firmware: %s", jobConfig.firmware.Name())
+		logger.Printf("\t- Target Version: %s", jobConfig.firmware.Version())
+	} else {
+		logger.Printf("\t- ContainerImg: %s", jobConfig.containerImg)
+	}
 	logger.Printf("\t- Dice Auth Host: %s", diceAuthServer)
 
 	agentIP := utils.GetEnv("EXTERNAL_IP", logger)
 	serverCRT := "/ota/certs/server.crt"
 	serverKey := "/ota/certs/server.key"
 
-	err := jobConfig.firmware.DownloadWithPlatform(jobConfig.device, DefaultOS)
-	if err != nil {
-		logger.Fatal(err.Error())
+	if jobConfig.device != "linux" {
+		err := jobConfig.firmware.DownloadWithPlatform(jobConfig.device, DefaultOS)
+		if err != nil {
+			logger.Fatal(err.Error())
+		}
+		logger.Printf("Firmware downloaded at %s", jobConfig.firmware.Destination())
 	}
-	logger.Printf("Firmware downloaded at %s", jobConfig.firmware.Destination())
 
 	var wg sync.WaitGroup
 
@@ -73,7 +84,7 @@ func main() {
 		time.Sleep(2 * time.Second)
 		defer wg.Done()
 		logger.Println("Requesting OTA initialization for agent", agentIP)
-		err = utils.DoPostRequest(fmt.Sprintf("http://%s/update", jobConfig.host), agentIP, logger)
+		err := utils.DoPostRequest(fmt.Sprintf("http://%s/update", jobConfig.host), agentIP, logger)
 		if err != nil {
 			logger.Fatalf("Error performing POST request: %v\n", err)
 		}
@@ -83,12 +94,21 @@ func main() {
 	go func() {
 		defer wg.Done()
 		cmd := exec.Command(OTAAgentPath)
-		cmd.Env = append(os.Environ(),
-			fmt.Sprintf("NEW_FIRMWARE_PATH=%s", jobConfig.firmware.Destination()),
-			fmt.Sprintf("DICE_AUTH_URL=http://%s:8000", diceAuthServer),
-			fmt.Sprintf("SERVER_CRT_PATH=%s", serverCRT),
-			fmt.Sprintf("SERVER_KEY_PATH=%s", serverKey),
-		)
+		if jobConfig.device != "linux" {
+			cmd.Env = append(os.Environ(),
+				fmt.Sprintf("NEW_FIRMWARE_PATH=%s", jobConfig.firmware.Destination()),
+				fmt.Sprintf("DICE_AUTH_URL=http://%s:8000", diceAuthServer),
+				fmt.Sprintf("SERVER_CRT_PATH=%s", serverCRT),
+				fmt.Sprintf("SERVER_KEY_PATH=%s", serverKey),
+			)
+		} else {
+			cmd.Env = append(os.Environ(),
+				fmt.Sprintf("CONTAINER_IMG=%s", jobConfig.containerImg),
+				fmt.Sprintf("DICE_AUTH_URL=http://%s:8000", diceAuthServer),
+				fmt.Sprintf("SERVER_CRT_PATH=%s", serverCRT),
+				fmt.Sprintf("SERVER_KEY_PATH=%s", serverKey),
+			)
+		}
 		logger.Println("Executing ota-agent with env")
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
