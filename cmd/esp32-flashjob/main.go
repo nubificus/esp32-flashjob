@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -118,12 +118,37 @@ func main() {
 		if err := cmd.Start(); err != nil {
 			logger.Fatalf("Error starting ota-agent: %v\n", err)
 		}
-		go io.Copy(os.Stdout, stdout)
-		go io.Copy(os.Stderr, stderr)
 
+		// Use a WaitGroup to wait for both goroutines to finish
+		var logWg sync.WaitGroup
+		logWg.Add(2)
+
+		// go io.Copy(os.Stdout, stdout)
+		go func() {
+			defer logWg.Done()
+			scanner := bufio.NewScanner(stdout)
+			for scanner.Scan() {
+				logger.Printf("[AGENT STDOUT] %s", scanner.Text())
+			}
+			if err := scanner.Err(); err != nil {
+				logger.Printf("Error reading stdout: %v", err)
+			}
+		}()
+		// go io.Copy(os.Stderr, stderr)
+		go func() {
+			defer logWg.Done()
+			scanner := bufio.NewScanner(stderr)
+			for scanner.Scan() {
+				logger.Printf("[AGENT STDERR] %s", scanner.Text())
+			}
+			if err := scanner.Err(); err != nil {
+				logger.Printf("Error reading stderr: %v", err)
+			}
+		}()
 		if err := cmd.Wait(); err != nil {
 			logger.Fatalf("Error waiting for ota-agent: %v\n", err)
 		}
+		logWg.Wait()
 		logger.Println("OTA Agent exited gracefully")
 	}()
 
