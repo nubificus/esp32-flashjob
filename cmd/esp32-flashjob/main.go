@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,7 +27,6 @@ type OTAConfig struct {
 	device      string
 	application string
 	version     string
-	containerImg string
 }
 
 func newOTAConfig() *OTAConfig {
@@ -38,19 +38,16 @@ func main() {
 	utils.DebugEnv(logger)
 	jobConfig := newOTAConfig()
 	jobConfig.device = utils.GetEnv("DEVICE", logger)
-	// quick fix for inconsistent device name
-	if jobConfig.device == "esp32-s3" {
-		jobConfig.device = "esp32s3"
-	}
+
+	// quick fix for inconsistent device names
+	jobConfig.device = strings.ReplaceAll(jobConfig.device, "_", "")
+	jobConfig.device = strings.ReplaceAll(jobConfig.device, "-", "")
+
 	jobConfig.host = utils.RetrieveHost(logger)
 	jobConfig.application = utils.GetEnv("APPLICATION_TYPE", logger)
 	jobConfig.version = utils.GetEnv("VERSION", logger)
 	diceAuthServer := utils.GetEnv("DICE_AUTH_SERVICE_SERVICE_HOST", logger)
-	if jobConfig.device == "linux" {
-		jobConfig.firmware = oci.NewOCIFirmware(utils.GetEnv("FIRMWARE", logger))
-	} else {
-		jobConfig.containerImg = utils.GetEnv("FIRMWARE", logger)
-	}
+	jobConfig.firmware = oci.NewOCIFirmware(utils.GetEnv("FIRMWARE", logger))
 	logger.Println("Parsed job options")
 	logger.Printf("\t- Host: %s", jobConfig.host)
 	logger.Printf("\t- Device: %s", jobConfig.device)
@@ -60,7 +57,7 @@ func main() {
 		logger.Printf("\t- Target Firmware: %s", jobConfig.firmware.Name())
 		logger.Printf("\t- Target Version: %s", jobConfig.firmware.Version())
 	} else {
-		logger.Printf("\t- ContainerImg: %s", jobConfig.containerImg)
+		logger.Printf("\t- ContainerImg: %s", jobConfig.firmware.URL())
 	}
 	logger.Printf("\t- Dice Auth Host: %s", diceAuthServer)
 
@@ -103,7 +100,7 @@ func main() {
 			)
 		} else {
 			cmd.Env = append(os.Environ(),
-				fmt.Sprintf("CONTAINER_IMG=%s", jobConfig.containerImg),
+				fmt.Sprintf("CONTAINER_IMG=%s", jobConfig.firmware.URL()),
 				fmt.Sprintf("DICE_AUTH_URL=http://%s:8000", diceAuthServer),
 				fmt.Sprintf("SERVER_CRT_PATH=%s", serverCRT),
 				fmt.Sprintf("SERVER_KEY_PATH=%s", serverKey),
